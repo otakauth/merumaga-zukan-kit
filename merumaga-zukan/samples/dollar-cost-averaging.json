@@ -1,0 +1,36 @@
+{
+  "id": "dollar-cost-averaging",
+  "title": "ドルコスト平均法",
+  "category": "investment",
+  "headline": "決まった金額で定期的に買い続け、買う時期を分散する",
+  "summary": "毎月1万円など、決まった金額で同じ投資信託や株を買い続けるやり方です。値段が高いときは少なく、安いときは多く買うことになるので、平均の買い値がならされます。",
+  "body": [
+    {
+      "label": "注意",
+      "text": "必ずもうかる方法ではありません。値段が下がり続ければ損をします。",
+      "source": "2026-03-03",
+      "sourceType": "article"
+    },
+    {
+      "label": "続けることがいちばん大事",
+      "text": "値下がりしたときにやめてしまうと、安く多く買えるという良さが消えてしまいます。決めた金額を淡々と続けることが大切です。",
+      "source": "2026-07-07",
+      "sourceType": "article"
+    }
+  ],
+  "relatedTopics": [
+    {
+      "concept": "inflation"
+    }
+  ],
+  "sourceArticles": [
+    {
+      "date": "2026-03-03"
+    },
+    {
+      "date": "2026-07-07"
+    }
+  ],
+  "firstIssue": "2026-03-03",
+  "visualization": "sample-dca"
+}

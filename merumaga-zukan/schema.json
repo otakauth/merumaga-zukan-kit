@@ -1,0 +1,127 @@
+{
+  "title": "メルマガ知識図鑑",
+  "icon": "hub",
+  "dataPath": "data/merumaga-zukan/items",
+  "primaryKey": "id",
+  "fields": {
+    "id": {
+      "type": "string",
+      "label": "ID",
+      "primary": true
+    },
+    "title": {
+      "type": "string",
+      "label": "概念",
+      "required": true
+    },
+    "category": {
+      "type": "enum",
+      "label": "カテゴリ",
+      "required": true,
+      "values": [
+        "ai-tech",
+        "ai-biz",
+        "chips",
+        "robotics",
+        "mobility",
+        "dev",
+        "macro",
+        "investment"
+      ]
+    },
+    "headline": {
+      "type": "string",
+      "label": "ひとことで言うと",
+      "required": true
+    },
+    "summary": {
+      "type": "text",
+      "label": "要するに（結局なに？）",
+      "required": true
+    },
+    "firstIssue": {
+      "type": "date",
+      "label": "初出号"
+    },
+    "visualization": {
+      "type": "string",
+      "label": "図版キー（マップビュー）"
+    },
+    "body": {
+      "type": "table",
+      "label": "掘り下げ（号ごとの話）",
+      "of": {
+        "label": {
+          "type": "string",
+          "label": "見出し"
+        },
+        "text": {
+          "type": "text",
+          "label": "本文"
+        },
+        "source": {
+          "type": "string",
+          "label": "出典号"
+        },
+        "sourceType": {
+          "type": "enum",
+          "label": "出典種別",
+          "values": [
+            "article",
+            "qa"
+          ]
+        }
+      }
+    },
+    "relatedTopics": {
+      "type": "table",
+      "label": "関連トピック",
+      "of": {
+        "concept": {
+          "type": "ref",
+          "label": "概念",
+          "to": "merumaga-zukan"
+        }
+      }
+    },
+    "sourceArticles": {
+      "type": "table",
+      "label": "出典号（全 backlog）",
+      "of": {
+        "date": {
+          "type": "string",
+          "label": "配信日"
+        }
+      }
+    },
+    "referencedBy": {
+      "type": "backlinks",
+      "label": "この概念に言及する概念",
+      "from": "merumaga-zukan",
+      "via": "relatedTopics.concept",
+      "display": [
+        "title",
+        "category"
+      ]
+    }
+  },
+  "displayField": "title",
+  "kanbanField": "category",
+  "views": [
+    {
+      "id": "map",
+      "label": "マップ",
+      "icon": "hub",
+      "file": "views/map.html",
+      "capabilities": [
+        "read"
+      ]
+    },
+    {
+      "id": "phone",
+      "label": "マップ（スマホ）",
+      "target": "mobile",
+      "file": "views/map-mobile.html"
+    }
+  ]
+}

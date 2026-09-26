@@ -1,0 +1,42 @@
+{
+  "id": "autonomous-driving-levels",
+  "title": "自動運転のレベル",
+  "category": "mobility",
+  "headline": "運転をどこまで機械にまかせるかを、0〜5の6段階で表す",
+  "summary": "アメリカの技術者団体（SAE）が決めた分け方です。レベル0は人がすべて運転し、レベル5はどんな場所でも機械がすべて運転します。\n\nレベル2までは人が運転の責任を持ち、レベル3からは条件つきで機械が責任を持つ、という点が大きな分かれ目です。",
+  "body": [
+    {
+      "label": "日本での使われ方",
+      "text": "国土交通省なども、この6段階の分け方を使って説明しています。",
+      "source": "2026-03-03",
+      "sourceType": "article"
+    },
+    {
+      "label": "決まった場所から始まる",
+      "text": "運転手のいないタクシーは、まず道や天気の条件がそろった地域から始まっています。レベル4は「場所を決めれば機械がすべて運転する」段階です。",
+      "source": "2026-08-04",
+      "sourceType": "article"
+    }
+  ],
+  "relatedTopics": [
+    {
+      "concept": "humanoid"
+    },
+    {
+      "concept": "ai-agent"
+    },
+    {
+      "concept": "gpu"
+    }
+  ],
+  "sourceArticles": [
+    {
+      "date": "2026-03-03"
+    },
+    {
+      "date": "2026-08-04"
+    }
+  ],
+  "visualization": "sample-levels",
+  "firstIssue": "2026-03-03"
+}

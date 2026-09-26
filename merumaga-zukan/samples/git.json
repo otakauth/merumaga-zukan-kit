@@ -1,0 +1,39 @@
+{
+  "id": "git",
+  "title": "Git（ギット）",
+  "category": "dev",
+  "headline": "ファイルの変更の歴史を記録して、いつでも前の状態に戻せる道具",
+  "summary": "プログラムなどのファイルを「いつ・だれが・どこを変えたか」の記録つきで保存する道具です。まちがえても前の状態に戻せるので、安心して作業を進められます。\n\nGitHub は、この記録をネット上に置いて、ほかの人と共有するためのサービスです。",
+  "body": [
+    {
+      "label": "生まれ",
+      "text": "2005年に、Linux を作ったリーナス・トーバルズが開発しました。",
+      "source": "2026-01-13",
+      "sourceType": "article"
+    },
+    {
+      "label": "AIと組むときの命綱",
+      "text": "AIにプログラムを書き換えさせても、保存の履歴があれば、いつでも前の状態に戻せます。安心して任せるための土台になります。",
+      "source": "2026-06-02",
+      "sourceType": "article"
+    }
+  ],
+  "relatedTopics": [
+    {
+      "concept": "ai-agent"
+    },
+    {
+      "concept": "llm"
+    }
+  ],
+  "sourceArticles": [
+    {
+      "date": "2026-01-13"
+    },
+    {
+      "date": "2026-06-02"
+    }
+  ],
+  "firstIssue": "2026-01-13",
+  "visualization": "sample-git"
+}

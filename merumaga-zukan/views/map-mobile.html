@@ -1,0 +1,1126 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+<style>
+  html, body { background:#0b0f1a; margin:0; }
+  ::-webkit-scrollbar { width:10px; height:10px; }
+  ::-webkit-scrollbar-thumb { background:rgba(148,163,184,.26); border-radius:8px; }
+  ::-webkit-scrollbar-track { background:transparent; }
+  @keyframes rise { from { transform:translateY(6px); } to { transform:none; } }
+  .rise { animation:rise .16s ease both; }
+  @keyframes sheet { from { transform:translateY(16px); opacity:0; } to { transform:none; opacity:1; } }
+  .sheet { animation:sheet .18s ease both; }
+  .vtext { writing-mode:vertical-rl; text-orientation:mixed; }
+</style>
+</head>
+<body>
+<div id="root" style="color:#94a3b8;font:14px/1.6 system-ui,sans-serif;padding:24px">読み込み中…</div>
+<script>
+const {
+  useState,
+  useEffect
+} = React;
+const CATEGORIES = [{
+  id: "ai-tech",
+  name: "AI技術"
+}, {
+  id: "ai-biz",
+  name: "AIビジネス"
+}, {
+  id: "chips",
+  name: "半導体"
+}, {
+  id: "robotics",
+  name: "ロボティクス"
+}, {
+  id: "mobility",
+  name: "自動運転"
+}, {
+  id: "dev",
+  name: "開発"
+}, {
+  id: "macro",
+  name: "マクロ経済"
+}, {
+  id: "investment",
+  name: "投資哲学"
+}];
+const fmtIssue = d => {
+  const p = String(d == null ? "" : d).split("-");
+  return p.length === 3 ? p[0].slice(2) + "/" + p[1] + "/" + p[2] + "号" : String(d);
+};
+const GLOSSARY = {
+  "トークン": {
+    "term": "トークン",
+    "body": "AIが文章を数えるときの単位。料金や、一度に読める量の上限もこの単位で決まる。",
+    "conceptId": "token-pricing"
+  },
+  "SAE": {
+    "term": "SAE（米国自動車技術者協会）",
+    "body": "自動車の技術の決まりごとを作っているアメリカの団体。自動運転のレベル分けを定めた。"
+  },
+  "トランジスタ": {
+    "term": "トランジスタ",
+    "body": "電気の流れを入れたり切ったりする、とても小さなスイッチ。半導体の基本の部品。"
+  }
+};
+const TERM_ENTRIES = (() => {
+  const list = [];
+  Object.keys(GLOSSARY).forEach(k => {
+    list.push([k, k]);
+    (GLOSSARY[k].aliases || []).forEach(a => list.push([a, k]));
+  });
+  list.sort((a, b) => b[0].length - a[0].length);
+  return list;
+})();
+const TERM_LOOKUP = Object.fromEntries(TERM_ENTRIES);
+const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const TERM_RE = new RegExp("(" + TERM_ENTRIES.map(e => esc(e[0])).join("|") + ")", "g");
+
+
+let CONCEPTS = [];
+let OLDEST_ISSUE = "";
+let NEWEST_ISSUE = "";
+const byId = id => CONCEPTS.find(c => c.id === id);
+const catName = id => (CATEGORIES.find(c => c.id === id) || {}).name || id;
+const conceptsIn = catId => CONCEPTS.filter(c => c.category === catId);
+const searchText = r => [r.title, r.headline, r.summary, catName(r.category), ...((r.body || []).flatMap(b => [b && b.label, b && b.text]))].filter(Boolean).join(" ").toLowerCase();
+
+const CATEGORY_GUIDE = {
+  "ai-tech": "【見本の学びガイド】今のAIの中心にあるのは{{llm}}だ。大量の文章から「次に来る言葉」を当てる練習をしただけで、答える・まとめる・訳すといった幅広いことができるようになった。\n\nその土台になった設計が{{transformer}}。さらに、AIに道具を持たせて作業をひと続きで任せる{{ai-agent}}という使い方へ広がっている。\n\n（ここは見本です。取り込んだ号に合わせて、分類ごとの読み物をAIが書き足していきます。）"
+};
+
+const LESSON_FLOWS = {"ai-tech-chrono": {"label": "時系列で読む", "subtitle": "AI技術のカードを、号の順番にたどります", "steps": [{"id": "transformer", "issue": "2025-10-07", "narrative": "物語は、AIの中身の設計から始まる。2017年に発表されたトランスフォーマーは、文の中の言葉どうしの関係をまとめて計算できる仕組みだった。これで学習が速く進むようになった。"}, {"id": "llm", "issue": "2025-11-04", "narrative": "その設計の上で、ばく大な文章を読ませたのが大規模言語モデルだ。「次の言葉を当てる」練習だけで、答える・まとめる・訳すができるようになった。次は、このAIに道具を持たせる話へ進む。"}, {"id": "ai-agent", "issue": "2026-01-13", "narrative": "答えるだけだったAIに、検索やファイル操作などの道具を持たせたのがAIエージェントだ。ゴールに向けて、調べて、実行して、確かめる、をくり返して進む。"}]}};
+const CATEGORY_LESSONS = {
+  "ai-tech": ["ai-tech-chrono"]
+};
+
+function renderGuide(text, openConcept) {
+  if (!text) return null;
+  const paraSrc = text.indexOf("\n\n") >= 0
+    ? text.split(/\n\n+/)
+    : (() => {
+        const parts = text.split("。").map(s => s.trim()).filter(Boolean);
+        return parts.length > 1 ? parts.map(s => s + "。") : [text];
+      })();
+  return paraSrc.map((para, pi) => {
+    const parts = [];
+    const re = /\{\{([a-z0-9-]+)\}\}/g;
+    let last = 0;
+    let m;
+    let idx = 0;
+    while ((m = re.exec(para))) {
+      if (m.index > last) parts.push(para.slice(last, m.index));
+      const cid = m[1];
+      const c = byId(cid);
+      parts.push(/*#__PURE__*/React.createElement("button", {
+        key: pi + "-" + idx++,
+        onClick: () => openConcept(cid),
+        className: "font-semibold text-cyan-300 underline decoration-dotted underline-offset-2 hover:decoration-solid"
+      }, c ? c.title : cid));
+      last = re.lastIndex;
+    }
+    if (last < para.length) parts.push(para.slice(last));
+    return /*#__PURE__*/React.createElement("p", {
+      key: pi,
+      className: "text-[18.5px] text-slate-300 leading-[1.9] mb-3 last:mb-0"
+    }, ...parts);
+  });
+}
+
+
+function issueKey(c) {
+  return c.first_issue || minSrc(c) || "";
+}
+function CategoryView({
+  cat,
+  goConcept,
+  goLesson,
+  navBar
+}) {
+  const list = conceptsIn(cat);
+  const guide = CATEGORY_GUIDE[cat];
+  const lessonIds = CATEGORY_LESSONS[cat] || [];
+  const [mode, setMode] = useState(guide ? "guide" : "list");
+  const [sortDir, setSortDir] = useState("desc");
+  const sortedList = list.slice().sort((a, b) => sortDir === "desc" ? issueKey(b).localeCompare(issueKey(a)) : issueKey(a).localeCompare(issueKey(b)));
+  const sortToggle = /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-1.5 mb-3"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-[11px] text-slate-500 mr-0.5"
+  }, "並び替え："), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setSortDir("desc"),
+    className: "text-[11.5px] px-2.5 py-1 rounded-full ring-1 transition " + (sortDir === "desc" ? "bg-cyan-500/10 text-cyan-200 ring-cyan-400/40" : "bg-white/[.03] text-slate-400 ring-white/10 hover:text-slate-200")
+  }, "🆕 新しい順"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setSortDir("asc"),
+    className: "text-[11.5px] px-2.5 py-1 rounded-full ring-1 transition " + (sortDir === "asc" ? "bg-cyan-500/10 text-cyan-200 ring-cyan-400/40" : "bg-white/[.03] text-slate-400 ring-white/10 hover:text-slate-200")
+  }, "📜 配信順（古い順）"));
+  const listView = /*#__PURE__*/React.createElement("div", null, sortToggle, /*#__PURE__*/React.createElement("div", {
+    className: "space-y-2.5"
+  }, sortedList.map(c => /*#__PURE__*/React.createElement("button", {
+    key: c.id,
+    onClick: () => goConcept(c.id),
+    className: "w-full text-left rounded-xl p-5 bg-white/[.04] ring-1 ring-white/10 hover:bg-white/[.07] hover:ring-cyan-400/40 transition"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-start justify-between gap-3"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "font-bold text-[16px] text-white"
+  }, c.title), issueKey(c) && /*#__PURE__*/React.createElement("span", {
+    className: "shrink-0 text-[10.5px] text-slate-500 mt-0.5"
+  }, fmtIssue(issueKey(c)))), /*#__PURE__*/React.createElement("div", {
+    className: "text-[13.5px] text-cyan-300 mt-1"
+  }, c.headline)))));
+  const guideView = guide ? /*#__PURE__*/React.createElement("div", {
+    className: "rounded-2xl bg-white/[.03] ring-1 ring-white/10 px-5 py-4 mb-2"
+  }, renderGuide(guide, goConcept), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setMode("list"),
+    className: "text-[11.5px] text-slate-500 hover:text-slate-300 mt-1"
+  }, "🗂 全" + list.length + "概念を一覧で見る →")) : null;
+  const tabs = guide ? /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-2 mb-6"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => setMode("guide"),
+    className: "text-[12px] px-3 py-1.5 rounded-full ring-1 transition " + (mode === "guide" ? "bg-cyan-500/10 text-cyan-200 ring-cyan-400/40" : "bg-white/[.03] text-slate-400 ring-white/10 hover:text-slate-200")
+  }, "📖 学びガイド"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setMode("list"),
+    className: "text-[12px] px-3 py-1.5 rounded-full ring-1 transition " + (mode === "list" ? "bg-cyan-500/10 text-cyan-200 ring-cyan-400/40" : "bg-white/[.03] text-slate-400 ring-white/10 hover:text-slate-200")
+  }, "🗂 一覧（" + list.length + "）")) : null;
+  const lessonButtons = lessonIds.length > 0 ? /*#__PURE__*/React.createElement("div", {
+    className: "flex flex-wrap gap-2 mb-6"
+  }, lessonIds.map(fid => {
+    const flow = LESSON_FLOWS[fid];
+    if (!flow) return null;
+    return /*#__PURE__*/React.createElement("button", {
+      key: fid,
+      onClick: () => goLesson(cat, fid),
+      className: "text-left rounded-xl px-4 py-3 bg-cyan-400/[.08] ring-1 ring-cyan-400/30 hover:bg-cyan-400/[.14] hover:ring-cyan-400/50 transition"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "text-[13px] font-bold text-cyan-100"
+    }, "📰 ", flow.label), /*#__PURE__*/React.createElement("div", {
+      className: "text-[11px] text-cyan-200/70 mt-0.5"
+    }, flow.subtitle));
+  })) : null;
+  return /*#__PURE__*/React.createElement("div", {
+    className: "rise"
+  }, /*#__PURE__*/React.createElement("h2", {
+    className: "text-2xl font-bold mb-4 text-white"
+  }, catName(cat)), lessonButtons, tabs, mode === "guide" && guide ? guideView : listView, navBar(false));
+}
+
+function LessonView({
+  flow,
+  idx,
+  concept,
+  Fig,
+  L,
+  catName,
+  goConcept,
+  onPrev,
+  onNext,
+  onExit,
+  navBar
+}) {
+  const step = flow.steps[idx];
+  const [showDict, setShowDict] = useState(false);
+  useEffect(() => setShowDict(false), [idx]);
+  const isLast = idx === flow.steps.length - 1;
+  return /*#__PURE__*/React.createElement("div", {
+    className: "rise"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between gap-3 mb-6 rounded-xl bg-cyan-400/10 ring-1 ring-cyan-400/30 px-4 py-3"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "text-[12.5px] text-cyan-100"
+  }, "📰 特集中：", /*#__PURE__*/React.createElement("span", {
+    className: "font-bold"
+  }, flow.label), " ・ " + (idx + 1) + "/" + flow.steps.length), /*#__PURE__*/React.createElement("button", {
+    onClick: onExit,
+    className: "text-[11.5px] text-cyan-200/80 hover:text-white shrink-0"
+  }, "特集を閉じる")), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2 mb-1"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "text-[17px] text-slate-500"
+  }, catName(concept.category)), (step.issue || issueKey(concept)) && /*#__PURE__*/React.createElement("div", {
+    className: "text-[16px] font-semibold text-cyan-300/90 bg-cyan-400/10 rounded-full px-2 py-0.5"
+  }, "🗓 " + fmtIssue(step.issue || issueKey(concept)))), /*#__PURE__*/React.createElement("h2", {
+    className: "text-[31px] leading-tight font-bold mb-7 text-white"
+  }, concept.title), Fig ? /*#__PURE__*/React.createElement("div", {
+    className: "mb-8"
+  }, /*#__PURE__*/React.createElement(Fig, null)) : null, /*#__PURE__*/React.createElement("div", {
+    className: "mb-8"
+  }, renderGuide(step.narrative, goConcept)), /*#__PURE__*/React.createElement("div", {
+    className: "rounded-2xl bg-white/[.03] ring-1 ring-white/10 mb-8"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => setShowDict(o => !o),
+    className: "w-full flex items-center justify-between px-5 py-4 text-left hover:bg-white/[.04] transition"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-[13px] font-bold text-slate-300"
+  }, "📖 概念ページの内容も見る"), /*#__PURE__*/React.createElement("span", {
+    className: "text-cyan-300 text-[12px] font-bold"
+  }, showDict ? "閉じる −" : "開く ＋")), showDict && /*#__PURE__*/React.createElement("div", {
+    className: "px-5 pb-5 pt-1 space-y-2"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "text-[19px] font-semibold text-cyan-200"
+  }, L(concept.headline)), /*#__PURE__*/React.createElement("div", {
+    className: "text-[20px] leading-[1.85] text-slate-400"
+  }, paraizeWithL(concept.summary, L)))), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2.5"
+  }, idx > 0 && /*#__PURE__*/React.createElement("button", {
+    onClick: onPrev,
+    className: "text-[13px] font-medium px-3.5 py-2 rounded-lg bg-white/[.06] hover:bg-white/[.1] ring-1 ring-white/10 transition"
+  }, "← 前へ"), !isLast && /*#__PURE__*/React.createElement("button", {
+    onClick: onNext,
+    className: "text-[13px] font-bold px-3.5 py-2 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 ring-1 ring-cyan-400/40 text-cyan-100 transition ml-auto"
+  }, "次へ →"), isLast && /*#__PURE__*/React.createElement("div", {
+    className: "ml-auto text-[13px] font-bold text-emerald-300"
+  }, "🎉 特集完了")), navBar(false));
+}
+
+function SearchBar({
+  onOpen
+}) {
+  const [q, setQ] = useState("");
+  const nq = q.trim().toLowerCase();
+  const hits = nq ? CONCEPTS.filter(c => searchText(c).includes(nq)).slice(0, 30) : [];
+  return /*#__PURE__*/React.createElement("div", {
+    className: "relative mb-7"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "text",
+    value: q,
+    onChange: e => setQ(e.target.value),
+    placeholder: "🔍 概念を検索",
+    className: "w-full rounded-xl border border-white/10 bg-white/[.04] px-4 py-2.5 text-[13px] text-slate-100 placeholder-slate-500 focus:outline-none focus:border-cyan-400/50"
+  }), q && /*#__PURE__*/React.createElement("button", {
+    onClick: () => setQ(""),
+    "aria-label": "検索をクリア",
+    className: "absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-200 text-sm"
+  }, "×"), nq && /*#__PURE__*/React.createElement("div", {
+    className: "mt-2 rounded-xl border border-white/10 bg-[#0d1420] divide-y divide-white/10 overflow-hidden max-h-96 overflow-y-auto"
+  }, hits.length ? hits.map(c => /*#__PURE__*/React.createElement("button", {
+    key: c.id,
+    onClick: () => {
+      setQ("");
+      onOpen(c.id);
+    },
+    className: "w-full text-left px-4 py-2.5 hover:bg-white/[.06] transition flex items-center gap-2.5"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-[13px] font-semibold text-white flex-shrink-0"
+  }, c.title), /*#__PURE__*/React.createElement("span", {
+    className: "text-[11.5px] text-slate-500 truncate"
+  }, c.headline || c.summary || ""), /*#__PURE__*/React.createElement("span", {
+    className: "ml-auto text-[10px] text-cyan-300/80 flex-shrink-0"
+  }, catName(c.category)))) : /*#__PURE__*/React.createElement("div", {
+    className: "px-4 py-3 text-[12.5px] text-slate-500"
+  }, "一致する概念が見つかりません")));
+}
+function Linkify({
+  text,
+  onTerm,
+  selfId,
+  selfTitle
+}) {
+  if (typeof text !== "string") return text || null;
+  TERM_RE.lastIndex = 0;
+  const seen = new Set();
+  const out = [];
+  let last = 0,
+    m;
+  while (m = TERM_RE.exec(text)) {
+    const raw = m[0];
+    const key = TERM_LOOKUP[raw] || raw;
+    const g = GLOSSARY[key];
+    const isSelf = g && g.conceptId && g.conceptId === selfId || raw === selfTitle;
+    if (m.index > last) out.push(text.slice(last, m.index));
+    if (isSelf || seen.has(key) || !g) {
+      out.push(raw);
+    } else {
+      seen.add(key);
+      out.push(/*#__PURE__*/React.createElement("button", {
+        key: out.length,
+        onClick: () => onTerm(key),
+        className: "text-cyan-300 underline decoration-dotted decoration-cyan-400/50 underline-offset-2 hover:decoration-cyan-200 font-[inherit]"
+      }, raw));
+    }
+    last = m.index + raw.length;
+  }
+  if (last < text.length) out.push(text.slice(last));
+  return out;
+}
+function paraizeWithL(text, L) {
+  const raw = String(text == null ? "" : text);
+  if (!raw) return null;
+  const paras = raw.indexOf("\n") >= 0
+    ? raw.split(/\n+/).map(s => s.trim()).filter(Boolean)
+    : (() => {
+        const parts = raw.split("。").map(s => s.trim()).filter(Boolean);
+        return parts.length > 1 ? parts.map(s => s + "。") : [raw];
+      })();
+  return paras.map((p, i) => /*#__PURE__*/React.createElement("p", {
+    key: i,
+    className: "mb-2 last:mb-0"
+  }, L(p)));
+}
+function TermModal({
+  termKey,
+  onClose,
+  onNav
+}) {
+  if (!termKey) return null;
+  const g = GLOSSARY[termKey];
+  if (!g) return null;
+  const linked = g.conceptId && byId(g.conceptId);
+  return /*#__PURE__*/React.createElement("div", {
+    className: "fixed inset-0 z-50 flex items-end sm:items-center justify-center",
+    onClick: onClose
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "absolute inset-0 bg-black/65"
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "sheet relative w-full sm:max-w-md bg-[#0f1626] ring-1 ring-white/15 rounded-t-2xl sm:rounded-2xl p-6 shadow-2xl",
+    onClick: e => e.stopPropagation()
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-start justify-between gap-4 mb-3"
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    className: "text-[10.5px] text-cyan-400 font-bold tracking-[.2em] mb-1"
+  }, "用語"), /*#__PURE__*/React.createElement("div", {
+    className: "text-[19px] font-bold text-white leading-snug"
+  }, g.term || termKey)), /*#__PURE__*/React.createElement("button", {
+    onClick: onClose,
+    className: "text-slate-400 hover:text-white text-xl leading-none shrink-0"
+  }, "✕")), /*#__PURE__*/React.createElement("p", {
+    className: "text-[14px] leading-[1.95] text-slate-200"
+  }, g.body), linked && /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      onNav(g.conceptId);
+      onClose();
+    },
+    className: "mt-4 text-[13px] font-semibold text-cyan-100 bg-cyan-400/12 ring-1 ring-cyan-400/35 rounded-lg px-3.5 py-2 hover:bg-cyan-400/22"
+  }, "「", linked.title, "」のページへ →")));
+}
+function Meter({
+  filled,
+  tone
+}) {
+  const col = tone === "strong" ? "bg-rose-400" : "bg-emerald-400";
+  return /*#__PURE__*/React.createElement("span", {
+    className: "inline-flex gap-1 align-middle"
+  }, [0, 1, 2, 3, 4].map(i => /*#__PURE__*/React.createElement("span", {
+    key: i,
+    className: "w-2.5 h-2.5 rounded-full " + (i < filled ? col : "bg-white/15")
+  })));
+}
+const Down = () => /*#__PURE__*/React.createElement("span", {
+  className: "text-slate-500 text-xl leading-none select-none"
+}, "↓");
+const Head = ({
+  children
+}) => /*#__PURE__*/React.createElement("p", {
+  className: "text-[21px] sm:text-[22px] font-bold text-white leading-snug"
+}, children);
+const Chip = ({
+  children,
+  tone
+}) => /*#__PURE__*/React.createElement("span", {
+  className: "inline-block rounded-md px-2 py-1 text-[16.5px] font-semibold ring-1 " + (tone === "cyan" ? "bg-cyan-400/15 text-cyan-100 ring-cyan-400/30" : "bg-white/[.06] text-slate-200 ring-white/12")
+}, children);
+
+
+const TONE_RING = {
+  cyan: "ring-cyan-400/40 bg-cyan-400/[.08]",
+  amber: "ring-amber-400/30 bg-amber-400/[.06]",
+  emerald: "ring-emerald-400/30 bg-emerald-400/[.05]",
+  rose: "ring-rose-400/30 bg-rose-400/[.05]",
+  slate: "ring-white/10"
+};
+const TONE_TEXT = {
+  cyan: "text-cyan-200",
+  amber: "text-amber-300",
+  emerald: "text-emerald-300",
+  rose: "text-rose-300",
+  slate: "text-slate-300"
+};
+function Bars({
+  note,
+  rows
+}) {
+  return /*#__PURE__*/React.createElement("div", {
+    className: "space-y-2.5"
+  }, note && /*#__PURE__*/React.createElement("div", {
+    className: "text-[17px] text-slate-400 mb-1"
+  }, note), rows.map((r, i) => /*#__PURE__*/React.createElement("div", {
+    key: i,
+    className: "flex items-center gap-3"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-[17px] shrink-0 w-28 " + (r.strong ? "font-bold text-cyan-200" : "text-slate-300")
+  }, r.label), /*#__PURE__*/React.createElement("span", {
+    className: "flex-1 h-4 rounded bg-white/10"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "block h-full rounded " + (r.tone || "bg-cyan-400"),
+    style: {
+      width: r.value + "%"
+    }
+  })), r.tag !== undefined && /*#__PURE__*/React.createElement("span", {
+    className: "text-[17px] font-bold w-14 text-right text-slate-300"
+  }, r.tag))));
+}
+function TwoBox({
+  a,
+  b
+}) {
+  const Box = x => /*#__PURE__*/React.createElement("div", {
+    className: "rounded-xl ring-1 p-4 " + (TONE_RING[x.tone] || TONE_RING.slate)
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "text-[18px] font-bold mb-2 " + (TONE_TEXT[x.tone] || TONE_TEXT.slate)
+  }, x.title), /*#__PURE__*/React.createElement("div", {
+    className: "text-[17.5px] text-slate-200 leading-relaxed"
+  }, x.body));
+  return /*#__PURE__*/React.createElement("div", {
+    className: "grid sm:grid-cols-2 gap-3"
+  }, Box(a), Box(b));
+}
+function Steps({
+  items
+}) {
+  return /*#__PURE__*/React.createElement("ol", {
+    className: "space-y-2"
+  }, items.map((s, i) => /*#__PURE__*/React.createElement("li", {
+    key: i,
+    className: "flex gap-3 items-start rounded-lg ring-1 ring-white/10 bg-white/[.03] p-3"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "w-6 h-6 rounded-full bg-cyan-400/20 text-cyan-200 text-[17px] font-bold grid place-items-center shrink-0"
+  }, i + 1), /*#__PURE__*/React.createElement("span", {
+    className: "text-[18px] text-slate-200"
+  }, s))));
+}
+function Timeline({
+  items
+}) {
+  const dot = {
+    slate: "bg-slate-500",
+    cyan: "bg-cyan-400",
+    emerald: "bg-emerald-400",
+    rose: "bg-rose-400",
+    amber: "bg-amber-400"
+  };
+  return /*#__PURE__*/React.createElement("ol", {
+    className: "relative border-l-2 border-white/15 ml-3 space-y-4"
+  }, items.map((s, i) => /*#__PURE__*/React.createElement("li", {
+    key: i,
+    className: "pl-5 relative"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "absolute -left-[9px] top-1 w-4 h-4 rounded-full ring-2 ring-[#0b0f1a] " + (dot[s.tone] || dot.slate)
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "text-[15.5px] font-bold text-slate-500"
+  }, s.when), /*#__PURE__*/React.createElement("div", {
+    className: "text-[19px] font-bold " + (TONE_TEXT[s.tone] || "text-slate-200")
+  }, s.what))));
+}
+function StatFlow({
+  from,
+  to,
+  caption
+}) {
+  return /*#__PURE__*/React.createElement("div", {
+    className: "rounded-xl ring-1 ring-white/10 p-4 flex items-center justify-center gap-4 text-center flex-wrap"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-[27px] font-extrabold text-slate-300"
+  }, from), /*#__PURE__*/React.createElement("span", {
+    className: "text-cyan-300 text-xl"
+  }, "→"), /*#__PURE__*/React.createElement("span", {
+    className: "text-[27px] font-extrabold text-cyan-200"
+  }, to), caption && /*#__PURE__*/React.createElement("div", {
+    className: "w-full text-[16px] text-slate-500 mt-0.5"
+  }, caption));
+}
+function NoteBox({
+  tone,
+  children
+}) {
+  return /*#__PURE__*/React.createElement("div", {
+    className: "rounded-xl p-3.5 text-[17.5px] leading-relaxed text-slate-200 ring-1 " + (TONE_RING[tone] || TONE_RING.slate)
+  }, children);
+}
+function ChipRow({
+  items,
+  tone
+}) {
+  return /*#__PURE__*/React.createElement("div", {
+    className: "flex flex-wrap items-center gap-2 text-[17.5px] text-slate-200"
+  }, items.map((it, i) => it === "→" ? /*#__PURE__*/React.createElement("span", {
+    key: i,
+    className: "text-slate-500"
+  }, "→") : /*#__PURE__*/React.createElement(Chip, {
+    key: i,
+    tone: tone
+  }, it)));
+}
+function CardGrid({
+  items,
+  cols
+}) {
+  const c = cols === 2 ? "sm:grid-cols-2" : cols === 4 ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-" + (cols || 3);
+  return /*#__PURE__*/React.createElement("div", {
+    className: "grid gap-2 " + c
+  }, items.map((it, i) => /*#__PURE__*/React.createElement("div", {
+    key: i,
+    className: "rounded-xl ring-1 p-3 text-center " + (TONE_RING[it.tone] || TONE_RING.slate)
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "text-[18px] font-bold " + (it.tone ? TONE_TEXT[it.tone] : "text-white")
+  }, it.title), it.body && /*#__PURE__*/React.createElement("div", {
+    className: "text-[16.5px] mt-1 text-slate-300"
+  }, it.body))));
+}
+function StackBar({
+  note,
+  segs
+}) {
+  return /*#__PURE__*/React.createElement("div", {
+    className: "space-y-2"
+  }, note && /*#__PURE__*/React.createElement("div", {
+    className: "text-[17px] text-slate-400"
+  }, note), /*#__PURE__*/React.createElement("div", {
+    className: "h-5 rounded-full overflow-hidden flex ring-1 ring-white/10"
+  }, segs.map((s, i) => /*#__PURE__*/React.createElement("span", {
+    key: i,
+    className: s.tone,
+    style: {
+      width: s.value + "%"
+    }
+  }))), /*#__PURE__*/React.createElement("div", {
+    className: "flex flex-wrap gap-x-4 gap-y-1 text-[16px]"
+  }, segs.map((s, i) => /*#__PURE__*/React.createElement("span", {
+    key: i,
+    className: "flex items-center gap-1.5"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "w-2.5 h-2.5 rounded-sm inline-block " + s.tone
+  }), /*#__PURE__*/React.createElement("span", {
+    className: "text-slate-300"
+  }, s.label + "　" + s.value + "%")))));
+}
+
+
+
+const C = { cyan: "#22d3ee", cyanL: "#a5f3fc", em: "#34d399", am: "#fbbf24", ro: "#fb7185", sl: "#94a3b8", slD: "#475569", tx: "#e2e8f0", bg: "#0b0f1a", vi: "#a78bfa" };
+function Svg({ html, cap, vb }) {
+  return React.createElement("div", { className: "rounded-2xl ring-1 ring-white/10 bg-white/[.02] p-4" },
+    React.createElement("div", { dangerouslySetInnerHTML: { __html: '<svg viewBox="' + vb + '" width="100%" style="display:block;font-family:inherit">' + html + "</svg>" } }),
+    cap && React.createElement("div", { className: "text-[15px] text-slate-500 mt-2 text-center" }, cap));
+}
+const T = (x, y, s, o) => { o = o || {}; return '<text x="' + x + '" y="' + y + '" fill="' + (o.c || C.tx) + '" font-size="' + (o.fs || 15) + '" font-weight="' + (o.w || 500) + '" text-anchor="' + (o.a || "middle") + '">' + s + "</text>"; };
+
+function FigSampleLlm() {
+  return React.createElement("div", { className: "space-y-4" },
+    React.createElement(ChipRow, { tone: "cyan", items: ["ばく大な文章を読む", "→", "次に来る言葉を当てる練習", "→", "答える・まとめる・訳す"] }),
+    React.createElement("div", { className: "rounded-2xl ring-1 ring-cyan-400/30 bg-cyan-400/[.05] p-5" },
+      React.createElement("div", { className: "text-[19px] text-white font-bold mb-4" }, "「きょうは とても 天気が ＿＿」 の続きを予想する"),
+      React.createElement(Bars, { rows: [
+        { label: "いい", value: 58, tag: "58%", strong: true },
+        { label: "悪い", value: 17, tag: "17%", tone: "bg-slate-400" },
+        { label: "晴れて", value: 11, tag: "11%", tone: "bg-slate-400" },
+        { label: "暑い", value: 8, tag: "8%", tone: "bg-slate-500" },
+        { label: "その他", value: 6, tag: "6%", tone: "bg-slate-600" }] }),
+      React.createElement("div", { className: "text-[15px] text-slate-500 mt-3" }, "いちばん確からしい言葉を選んで1語足す → また次を予想する、をくり返して文章ができあがる")));
+}
+
+function FigSampleMoore() {
+  const X = y => 70 + (y - 1970) / 55 * 650, Y = v => 320 - (Math.log10(v) - 3) / 8.5 * 290;
+  const pts = [[1971, 2300, "初期のCPU"], [1978, 29000, ""], [1989, 1.2e6, ""], [2000, 4.2e7, "2000年ごろ"], [2008, 7.3e8, ""], [2020, 1.6e10, ""], [2023, 9.2e10, "最近のCPU"]];
+  let h = "";
+  [[1e3, "千"], [1e5, "10万"], [1e7, "1000万"], [1e9, "10億"], [1e11, "1000億"]].forEach(([v, l]) => {
+    h += '<line x1="70" x2="720" y1="' + Y(v) + '" y2="' + Y(v) + '" stroke="#ffffff18"/>' + T(62, Y(v) + 5, l, { a: "end", c: C.sl, fs: 13 });
+  });
+  [1970, 1980, 1990, 2000, 2010, 2020].forEach(y => { h += T(X(y), 345, y + "年", { c: C.sl, fs: 13 }); });
+  h += '<line x1="' + X(1971) + '" y1="' + Y(2300) + '" x2="' + X(2023) + '" y2="' + Y(2300 * Math.pow(2, 26)) + '" stroke="' + C.am + '" stroke-width="2" stroke-dasharray="6 6"/>';
+  h += T(X(1990), Y(2300 * Math.pow(2, 9.5)) - 34, "点線＝2年で2倍のペース", { c: C.am, fs: 14, w: 700, a: "end" });
+  h += '<polyline fill="none" stroke="' + C.cyan + '" stroke-width="3" points="' + pts.map(p => X(p[0]) + "," + Y(p[1])).join(" ") + '"/>';
+  pts.forEach(p => { h += '<circle cx="' + X(p[0]) + '" cy="' + Y(p[1]) + '" r="6" fill="' + C.cyan + '" stroke="' + C.bg + '" stroke-width="2"/>'; if (p[2]) h += T(X(p[0]) + (p[0] > 2015 ? -12 : 10), Y(p[1]) + 22, p[2], { a: p[0] > 2015 ? "end" : "start", c: C.cyanL, fs: 13 }); });
+  h += T(70, 16, "1つのチップに載るトランジスタの数（目盛りは10倍・100倍ずつ）", { a: "start", c: C.sl, fs: 13 });
+  return React.createElement(Svg, { vb: "0 0 740 360", html: h, cap: "数千個 → 数百億個。50年でおよそ1000万倍に" });
+}
+
+function FigSampleLevels() {
+  const who = ["人", "人", "人", "機械", "機械", "機械"], desc = ["何もしない", "一部を手伝う", "両方を手伝う", "条件つき", "場所を限って", "どこでも"];
+  let h = '<rect x="20" y="30" width="330" height="26" rx="6" fill="#fb718522"/>' + T(185, 49, "運転の責任は 人", { c: C.ro, fs: 14, w: 700 });
+  h += '<rect x="370" y="30" width="350" height="26" rx="6" fill="#22d3ee22"/>' + T(545, 49, "運転の責任は 機械の側", { c: C.cyan, fs: 14, w: 700 });
+  for (let i = 0; i < 6; i++) {
+    const x = 20 + i * 118, hh = 72 + i * 34, y = 330 - hh, col = i < 3 ? C.ro : C.cyan;
+    h += '<rect x="' + x + '" y="' + y + '" width="108" height="' + hh + '" rx="8" fill="' + col + '" fill-opacity="' + (0.18 + i * 0.1) + '" stroke="' + col + '"/>';
+    h += T(x + 54, y + 30, "レベル" + i, { fs: 17, w: 800 });
+    h += T(x + 54, y + 54, "主役：" + who[i], { fs: 14, c: i < 3 ? "#fecdd3" : C.cyanL, w: 700 });
+    h += T(x + 54, 352, desc[i], { fs: 12, c: C.sl });
+  }
+  return React.createElement(Svg, { vb: "0 0 740 365", html: h, cap: "レベル3を境に、運転の主役が人から機械へ入れかわる" });
+}
+
+function FigSampleTransformer() {
+  const w = ["猫", "が", "魚", "を", "食べた"], x = [90, 220, 350, 480, 630], wt = [0.9, 0.15, 0.8, 0.2];
+  let h = "";
+  for (let i = 0; i < 4; i++) {
+    const mid = (x[i] + x[4]) / 2, hgt = 40 + (4 - i) * 38;
+    h += '<path d="M' + x[4] + ",240 Q" + mid + "," + (240 - hgt * 2) + " " + x[i] + ',240" fill="none" stroke="' + C.cyan + '" stroke-opacity="' + (0.25 + wt[i] * 0.75) + '" stroke-width="' + (1.5 + wt[i] * 9) + '"/>';
+    h += T(mid, 240 - hgt - 8, Math.round(wt[i] * 100) + "", { c: wt[i] > 0.5 ? C.cyanL : C.sl, fs: 14, w: 700 });
+  }
+  w.forEach((s, i) => { h += '<rect x="' + (x[i] - 48) + '" y="245" width="96" height="44" rx="10" fill="' + (i === 4 ? "#22d3ee33" : "#ffffff10") + '" stroke="' + (i === 4 ? C.cyan : "#ffffff30") + '"/>' + T(x[i], 274, s, { fs: 19, w: 700 }); });
+  h += T(370, 325, "線が太いほど強く注目している", { c: C.sl, fs: 14 });
+  return React.createElement(Svg, { vb: "0 0 740 340", html: h, cap: "「食べた」は「猫（だれが）」と「魚（何を）」に強く注目する" });
+}
+
+function FigSampleAgent() {
+  const cx = 370, cy = 190, r = 125, st = [["① 計画する", "何から手をつけるか"], ["② 道具を使う", "検索・ファイル・実行"], ["③ 結果を見る", "うまくいったか"], ["④ 直す", "だめなら次の手"]];
+  let h = '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none" stroke="' + C.cyan + '" stroke-opacity=".35" stroke-width="3" stroke-dasharray="4 8"/>';
+  h += '<circle cx="' + cx + '" cy="' + cy + '" r="56" fill="#fbbf2420" stroke="' + C.am + '"/>' + T(cx, cy - 4, "ゴール", { c: C.am, fs: 18, w: 800 }) + T(cx, cy + 20, "頼まれた仕事", { c: "#fde68a", fs: 13 });
+  st.forEach((s, i) => {
+    const a = -Math.PI / 2 + i * Math.PI / 2, x = cx + Math.cos(a) * r * 1.55, y = cy + Math.sin(a) * r * 1.02;
+    h += '<rect x="' + (x - 92) + '" y="' + (y - 30) + '" width="184" height="60" rx="12" fill="#0f1a2a" stroke="' + C.cyan + '"/>' + T(x, y - 4, s[0], { fs: 17, w: 800, c: C.cyanL }) + T(x, y + 18, s[1], { fs: 13, c: C.sl });
+    const a2 = a + Math.PI / 4, ax = cx + Math.cos(a2) * r, ay = cy + Math.sin(a2) * r;
+    h += T(ax, ay + 6, "➜", { c: C.cyan, fs: 20 }).replace("<text ", '<text transform="rotate(' + (a2 * 180 / Math.PI + 90) + " " + ax + " " + ay + ')" ');
+  });
+  return React.createElement(Svg, { vb: "0 0 740 380", html: h, cap: "ゴールに届くまで、この輪を自分で何周も回す" });
+}
+
+function FigSampleToken() {
+  const tk = ["きょう", "は", "いい", "天気", "です", "ね", "。"], cols = ["#22d3ee33", "#a78bfa33", "#34d39933", "#fbbf2433"];
+  let h = "", x = 20;
+  tk.forEach((s, i) => { const w = 30 + s.length * 22; h += '<rect x="' + x + '" y="20" width="' + w + '" height="48" rx="8" fill="' + cols[i % 4] + '" stroke="#ffffff30"/>' + T(x + w / 2, 51, s, { fs: 19, w: 700 }); x += w + 8; });
+  h += T(x + 16, 51, "＝ 7トークン", { a: "start", fs: 18, w: 800, c: C.am });
+  return React.createElement("div", { className: "space-y-4" },
+    React.createElement(Svg, { vb: "0 0 740 90", html: h, cap: "AIは文章をこの小さなかたまり（トークン）に切って数える" }),
+    React.createElement(TwoBox, { a: { tone: "cyan", title: "📥 読ませる量（入力）", body: "質問や資料の長さ。長い資料を渡すほど増える" }, b: { tone: "amber", title: "📤 書かせる量（出力）", body: "AIの答えの長さ。入力より単価が高いことが多い" } }),
+    React.createElement(NoteBox, { tone: "slate" }, "料金 ＝ 入力トークン数 × 単価 ＋ 出力トークン数 × 単価"));
+}
+
+function FigSampleGpu() {
+  let h = '<rect x="20" y="40" width="300" height="250" rx="14" fill="#ffffff08" stroke="#ffffff30"/>' + T(170, 28, "CPU", { fs: 20, w: 800 });
+  for (let i = 0; i < 8; i++) { const x = 40 + (i % 4) * 68, y = 70 + Math.floor(i / 4) * 105; h += '<rect x="' + x + '" y="' + y + '" width="56" height="88" rx="8" fill="#a78bfa55" stroke="' + C.vi + '"/>'; }
+  h += '<rect x="400" y="40" width="320" height="250" rx="14" fill="#ffffff08" stroke="#ffffff30"/>' + T(560, 28, "GPU", { fs: 20, w: 800, c: C.cyanL });
+  for (let r = 0; r < 14; r++) for (let c = 0; c < 18; c++) h += '<rect x="' + (414 + c * 16.8) + '" y="' + (54 + r * 16.4) + '" width="12" height="12" rx="2" fill="#22d3ee" fill-opacity=".55"/>';
+  h += T(170, 318, "数個の強い頭脳", { fs: 15, w: 700, c: "#ddd6fe" }) + T(170, 340, "複雑な仕事を順番にこなす", { fs: 13, c: C.sl });
+  h += T(560, 318, "数千個の小さな頭脳", { fs: 15, w: 700, c: C.cyanL }) + T(560, 340, "同じ計算を一斉にこなす", { fs: 13, c: C.sl });
+  return React.createElement(Svg, { vb: "0 0 740 355", html: h, cap: "AIの学習は「同じ掛け算を大量に」なので、GPUの形が向いている" });
+}
+
+function FigSampleDca() {
+  const price = [100, 80, 60, 70, 90, 110], X = i => 90 + i * 115, Y = p => 200 - (p - 40) * 2.2;
+  let h = "", tot = 0;
+  price.forEach((p, i) => {
+    const n = Math.round(10000 / p); tot += n;
+    const bh = n * 0.9;
+    h += '<rect x="' + (X(i) - 26) + '" y="' + (330 - bh) + '" width="52" height="' + bh + '" rx="5" fill="#34d39955" stroke="' + C.em + '"/>' + T(X(i), 325 - bh, n + "口", { fs: 13, c: "#a7f3d0", w: 700 });
+    h += T(X(i), 352, (i + 1) + "か月目", { fs: 12, c: C.sl });
+  });
+  h += '<polyline fill="none" stroke="' + C.am + '" stroke-width="3" points="' + price.map((p, i) => X(i) + "," + Y(p)).join(" ") + '"/>';
+  price.forEach((p, i) => { h += '<circle cx="' + X(i) + '" cy="' + Y(p) + '" r="5" fill="' + C.am + '"/>' + T(X(i), Y(p) - 12, p + "円", { fs: 13, c: "#fde68a", w: 700 }); });
+  h += T(20, 22, "── 値段", { a: "start", c: C.am, fs: 13, w: 700 }) + T(110, 22, "■ 毎月1万円で買えた量", { a: "start", c: C.em, fs: 13, w: 700 });
+  const avg = Math.round(60000 / tot * 10) / 10;
+  return React.createElement("div", { className: "space-y-3" },
+    React.createElement(Svg, { vb: "0 0 740 365", html: h, cap: "値段が下がった月ほど、たくさん買える（数字は見本）" }),
+    React.createElement(StatFlow, { from: "値段の平均 85円", to: "買った平均 " + avg + "円", caption: "同じ金額ずつ買うと、平均の買い値が下がる" }));
+}
+
+function FigSampleInflation() {
+  return React.createElement("div", { className: "space-y-4" },
+    React.createElement(Bars, { note: "今100円の買い物が、毎年2%ずつ値上がりしたら", rows: [
+      { label: "今", value: 50, tag: "100円", tone: "bg-slate-400" },
+      { label: "5年後", value: 55, tag: "110円" },
+      { label: "10年後", value: 61, tag: "122円" },
+      { label: "20年後", value: 74, tag: "149円" },
+      { label: "35年後", value: 100, tag: "200円", strong: true, tone: "bg-rose-400" }] }),
+    React.createElement(StatFlow, { from: "100万円", to: "約67万円分", caption: "20年後、預金に置いたままの100万円で買える量" }));
+}
+
+function FigSampleHumanoid() {
+  let h = '<g fill="#ffffff0d" stroke="' + C.cyan + '" stroke-width="2.5">';
+  h += '<rect x="330" y="30" width="80" height="70" rx="22"/><rect x="310" y="112" width="120" height="130" rx="20"/>';
+  h += '<rect x="262" y="118" width="36" height="120" rx="16"/><rect x="442" y="118" width="36" height="120" rx="16"/>';
+  h += '<rect x="322" y="252" width="40" height="110" rx="16"/><rect x="378" y="252" width="40" height="110" rx="16"/></g>';
+  h += '<circle cx="355" cy="62" r="7" fill="' + C.cyan + '"/><circle cx="385" cy="62" r="7" fill="' + C.cyan + '"/>';
+  h += '<circle cx="280" cy="252" r="14" fill="' + C.am + '" fill-opacity=".6"/><circle cx="460" cy="252" r="14" fill="' + C.am + '" fill-opacity=".6"/>';
+  const lab = [[370, 62, 560, 55, "目：カメラとセンサー", "まわりの様子を見る", C.cyan], [370, 160, 560, 150, "頭脳：AI", "何をするか考える", C.vi], [460, 252, 560, 250, "手：モーターと指", "いちばん難しい部分", C.am], [398, 330, 560, 340, "脚：バランス制御", "倒れずに歩く", C.em]];
+  lab.forEach(l => { h += '<line x1="' + l[0] + '" y1="' + l[1] + '" x2="' + (l[2] - 8) + '" y2="' + l[3] + '" stroke="' + l[6] + '" stroke-dasharray="3 4"/><circle cx="' + l[0] + '" cy="' + l[1] + '" r="4" fill="' + l[6] + '"/>' + T(l[2], l[3], l[4], { a: "start", fs: 16, w: 800, c: l[6] }) + T(l[2], l[3] + 20, l[5], { a: "start", fs: 13, c: C.sl }); });
+  h += T(150, 190, "人の形なので", { fs: 15, c: C.sl }) + T(150, 214, "人向けの職場で", { fs: 15, c: C.sl }) + T(150, 238, "そのまま働ける", { fs: 15, c: C.tx, w: 700 });
+  return React.createElement(Svg, { vb: "0 0 740 380", html: h, cap: "体の各部分に、別々の技術が詰まっている" });
+}
+
+function FigSampleGit() {
+  const m = [80, 200, 320, 440, 560, 680], yM = 110, yB = 230;
+  let h = '<line x1="80" y1="' + yM + '" x2="680" y2="' + yM + '" stroke="' + C.cyan + '" stroke-width="4"/>';
+  h += '<path d="M200,' + yM + " C240," + yB + " 260," + yB + " 300," + yB + " L480," + yB + " C520," + yB + " 540," + yM + ' 560,' + yM + '" fill="none" stroke="' + C.vi + '" stroke-width="4"/>';
+  m.forEach((x, i) => { h += '<circle cx="' + x + '" cy="' + yM + '" r="13" fill="' + (i === 4 ? C.am : C.cyan) + '" stroke="' + C.bg + '" stroke-width="3"/>'; });
+  [320, 440].forEach(x => { h += '<circle cx="' + x + '" cy="' + yB + '" r="13" fill="' + C.vi + '" stroke="' + C.bg + '" stroke-width="3"/>'; });
+  h += T(80, 70, "保存①", { fs: 14, c: C.cyanL }) + T(200, 70, "保存②", { fs: 14, c: C.cyanL }) + T(680, 70, "最新", { fs: 14, c: C.cyanL });
+  h += T(30, yM + 5, "本線", { a: "start", fs: 14, w: 800, c: C.cyan }).replace('x="30"', 'x="8"');
+  h += T(380, yB + 45, "枝分かれ（ブランチ）で新しい機能を試す", { fs: 15, w: 700, c: "#ddd6fe" });
+  h += T(560, 70, "合流（マージ）", { fs: 15, w: 800, c: C.am });
+  h += T(150, 175, "ここから分ける", { fs: 13, c: C.sl, a: "end" });
+  return React.createElement(Svg, { vb: "0 0 740 300", html: h, cap: "保存した点（コミット）にはいつでも戻れる。失敗しても本線は無事" });
+}
+
+const FIGS = {
+  "sample-llm": FigSampleLlm,
+  "sample-moore": FigSampleMoore,
+  "sample-levels": FigSampleLevels,
+  "sample-transformer": FigSampleTransformer,
+  "sample-agent": FigSampleAgent,
+  "sample-token": FigSampleToken,
+  "sample-gpu": FigSampleGpu,
+  "sample-dca": FigSampleDca,
+  "sample-inflation": FigSampleInflation,
+  "sample-humanoid": FigSampleHumanoid,
+  "sample-git": FigSampleGit
+};
+
+
+function RelatedChain({
+  current,
+  ids,
+  go
+}) {
+  return /*#__PURE__*/React.createElement("div", {
+    className: "mb-8"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "text-[12px] font-bold text-slate-400 mb-3 tracking-wide"
+  }, "関連する概念 — たどって世界観を歩く"), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-x-1.5 gap-y-2 flex-wrap"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "rounded-full px-3 py-1.5 text-[13px] font-bold bg-white/12 text-white ring-1 ring-white/20"
+  }, current.title), /*#__PURE__*/React.createElement("span", {
+    className: "text-slate-500 text-[15px] px-0.5"
+  }, "→"), ids.map(id => {
+    const r = byId(id);
+    return /*#__PURE__*/React.createElement("button", {
+      key: id,
+      onClick: () => r && go(id),
+      disabled: !r,
+      className: "rounded-full px-3 py-1.5 text-[13px] font-semibold ring-1 transition " + (r ? "bg-cyan-400/15 text-cyan-100 ring-cyan-400/40 hover:bg-cyan-400/25" : "bg-white/[.04] text-slate-500 ring-white/10 cursor-default")
+    }, r ? r.title : id);
+  })));
+}
+
+
+function App() {
+  const [view, setView] = useState({
+    cat: null,
+    concept: null,
+    lesson: null
+  });
+  const [openBody, setOpenBody] = useState(false);
+  const [term, setTerm] = useState(null);
+  const concept = view.concept ? byId(view.concept) : null;
+  const lesson = view.lesson ? LESSON_FLOWS[view.lesson.flowId] : null;
+  const lessonIdx = view.lesson ? view.lesson.idx : 0;
+  const lessonStep = lesson ? lesson.steps[lessonIdx] : null;
+  const lessonConcept = lessonStep ? byId(lessonStep.id) : null;
+  const activeConcept = lessonConcept || concept;
+  const level = activeConcept ? 3 : view.cat ? 2 : 1;
+  const goHome = () => {
+    setView({
+      cat: null,
+      concept: null,
+      lesson: null
+    });
+    jump();
+  };
+  const goCat = id => {
+    setView({
+      cat: id,
+      concept: null,
+      lesson: null
+    });
+    jump();
+  };
+  const goConcept = id => {
+    const c = byId(id);
+    if (!c) return;
+    setView({
+      cat: c.category,
+      concept: id,
+      lesson: null
+    });
+    setOpenBody(false);
+    jump();
+  };
+  const goLesson = (cat, flowId) => {
+    if (!LESSON_FLOWS[flowId]) return;
+    setView({
+      cat,
+      concept: null,
+      lesson: {
+        flowId,
+        idx: 0
+      }
+    });
+    setOpenBody(false);
+    jump();
+  };
+  const lessonNav = delta => {
+    setView(v => {
+      if (!v.lesson) return v;
+      const flow = LESSON_FLOWS[v.lesson.flowId];
+      if (!flow) return v;
+      const next = Math.min(Math.max(v.lesson.idx + delta, 0), flow.steps.length - 1);
+      return {
+        ...v,
+        lesson: {
+          ...v.lesson,
+          idx: next
+        }
+      };
+    });
+    jump();
+  };
+  const exitLesson = () => {
+    setView(v => ({
+      cat: v.cat,
+      concept: null,
+      lesson: null
+    }));
+    jump();
+  };
+  const back = () => {
+    if (view.lesson) {
+      exitLesson();
+      return;
+    }
+    if (view.concept) setView(v => ({
+      cat: v.cat,
+      concept: null,
+      lesson: null
+    }));else if (view.cat) goHome();
+    jump();
+  };
+  function jump() {
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth"
+    });
+  }
+  useEffect(() => {
+    const k = e => {
+      if (e.key !== "Escape") return;
+      if (term) setTerm(null);else back();
+    };
+    window.addEventListener("keydown", k);
+    return () => window.removeEventListener("keydown", k);
+  });
+  const crumbs = [{
+    label: "ホーム",
+    fn: goHome
+  }, view.cat && {
+    label: catName(view.cat),
+    fn: () => goCat(view.cat)
+  }, activeConcept && {
+    label: lesson ? "📰 " + lesson.label : activeConcept.title,
+    fn: () => {}
+  }].filter(Boolean);
+  const Fig = activeConcept && activeConcept.visualization ? FIGS[activeConcept.visualization] : null;
+  const L = t => activeConcept ? /*#__PURE__*/React.createElement(Linkify, {
+    text: t,
+    onTerm: setTerm,
+    selfId: activeConcept.id,
+    selfTitle: activeConcept.title
+  }) : t;
+  const navBar = top => /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2.5 flex-wrap " + (top ? "mb-8" : "mt-10 pt-5 border-t border-white/10")
+  }, level > 1 && /*#__PURE__*/React.createElement("button", {
+    onClick: back,
+    className: "text-[13px] font-medium px-3.5 py-2 rounded-lg bg-white/[.06] hover:bg-white/[.1] ring-1 ring-white/10 transition"
+  }, "← 戻る"), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2 text-[13px] text-slate-400 flex-wrap"
+  }, crumbs.map((c, i) => /*#__PURE__*/React.createElement(React.Fragment, {
+    key: i
+  }, i > 0 && /*#__PURE__*/React.createElement("span", {
+    className: "text-slate-600"
+  }, "/"), /*#__PURE__*/React.createElement("button", {
+    onClick: c.fn,
+    className: i === crumbs.length - 1 ? "text-cyan-300 font-semibold" : "hover:text-slate-200 transition"
+  }, c.label)))), !top && level > 1 && /*#__PURE__*/React.createElement("button", {
+    onClick: () => window.scrollTo({
+      top: 0,
+      behavior: "smooth"
+    }),
+    className: "text-[12px] text-slate-500 hover:text-slate-300 ml-auto"
+  }, "↑ 上へ"));
+  return /*#__PURE__*/React.createElement("div", {
+    className: "min-h-screen text-slate-100 selection:bg-cyan-500/30",
+    style: {
+      background: "radial-gradient(1000px 480px at 12% -10%, rgba(56,189,248,.06), transparent 60%), #0b0f1a"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "max-w-3xl mx-auto px-5 sm:px-8 py-9"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "mb-7"
+  }, /*#__PURE__*/React.createElement("h1", {
+    className: "text-[19px] font-bold tracking-tight text-white"
+  }, "メルマガ知識図鑑", /*#__PURE__*/React.createElement("span", {
+    className: "text-slate-500 text-[13px] font-normal ml-2"
+  }, "マイ図鑑")), /*#__PURE__*/React.createElement("p", {
+    className: "text-[13px] text-slate-400 mt-1"
+  }, "概念をつないで知識を探索する。", /*#__PURE__*/React.createElement("span", {
+    className: "text-cyan-300 underline decoration-dotted decoration-cyan-400/50 underline-offset-2"
+  }, "点線の用語"), "はクリックで説明。"), OLDEST_ISSUE && /*#__PURE__*/React.createElement("p", {
+    className: "text-[11.5px] text-slate-500 mt-1.5"
+  }, "収録している号：", /*#__PURE__*/React.createElement("span", {
+    className: "text-slate-300 font-semibold"
+  }, fmtIssue(OLDEST_ISSUE)), /*#__PURE__*/React.createElement("span", {
+    className: "mx-1.5 text-slate-600"
+  }, "〜"), /*#__PURE__*/React.createElement("span", {
+    className: "text-slate-300 font-semibold"
+  }, fmtIssue(NEWEST_ISSUE)), /*#__PURE__*/React.createElement("span", {
+    className: "ml-2 text-slate-600"
+  }, "（最古〜最新）")), /*#__PURE__*/React.createElement("p", {
+    className: "text-[11.5px] text-slate-500 mt-1.5"
+  }, "💡 まずは気になるカテゴリをクリックして、「時系列で読む」や「特集」から進んでみてください。")), /*#__PURE__*/React.createElement(SearchBar, {
+    onOpen: goConcept
+  }), navBar(true), level === 1 && /*#__PURE__*/React.createElement("div", {
+    key: "l1",
+    className: "rise grid sm:grid-cols-2 gap-3"
+  }, CATEGORIES.map(cat => {
+    const n = conceptsIn(cat.id).length;
+    return /*#__PURE__*/React.createElement("button", {
+      key: cat.id,
+      disabled: !n,
+      onClick: () => goCat(cat.id),
+      className: "text-left rounded-xl p-5 ring-1 transition " + (n ? "bg-white/[.04] ring-white/10 hover:bg-white/[.07] hover:ring-cyan-400/40" : "bg-white/[.02] ring-white/5 opacity-45 cursor-not-allowed")
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "text-[16px] font-bold text-white"
+    }, cat.name), /*#__PURE__*/React.createElement("div", {
+      className: "text-[12px] text-slate-500 mt-1"
+    }, n ? n + " 概念" : "準備中"));
+  })), level === 2 && view.cat && /*#__PURE__*/React.createElement(CategoryView, {
+    key: "l2-" + view.cat,
+    cat: view.cat,
+    goConcept: goConcept,
+    goLesson: goLesson,
+    navBar: navBar
+  }), level === 3 && activeConcept && lesson && /*#__PURE__*/React.createElement(LessonView, {
+    key: "lesson-" + view.lesson.flowId + "-" + lessonIdx,
+    flow: lesson,
+    idx: lessonIdx,
+    concept: activeConcept,
+    Fig: Fig,
+    L: L,
+    catName: catName,
+    goConcept: goConcept,
+    onPrev: () => lessonNav(-1),
+    onNext: () => lessonNav(1),
+    onExit: exitLesson,
+    navBar: navBar
+  }), level === 3 && activeConcept && !lesson && /*#__PURE__*/React.createElement("div", {
+    key: "l3-" + activeConcept.id,
+    className: "rise"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between gap-3 mb-1"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "text-[17px] text-slate-500"
+  }, catName(activeConcept.category)), /*#__PURE__*/React.createElement("button", {
+    onClick: () => window.__MC_VIEW.startChat("「"+activeConcept.title+"」（"+activeConcept.id+"）の内容を修正したい：\n\n"),
+    className: "text-[11px] text-slate-500 hover:text-cyan-300"
+  }, "✎ 修正を相談")), /*#__PURE__*/React.createElement("h2", {
+    className: "text-[35px] leading-tight font-bold mb-3 text-white"
+  }, L(activeConcept.title)), /*#__PURE__*/React.createElement("p", {
+    className: "text-[23px] leading-snug font-semibold text-cyan-200 mb-9"
+  }, L(activeConcept.headline)), Fig ? /*#__PURE__*/React.createElement("div", {
+    className: "mb-9"
+  }, /*#__PURE__*/React.createElement(Fig, null)) : /*#__PURE__*/React.createElement("div", {
+    className: "mb-9 rounded-xl ring-1 ring-white/10 p-6 text-[18px] text-slate-500"
+  }, "図解 準備中"), /*#__PURE__*/React.createElement("div", {
+    className: "text-[21px] leading-[1.95] text-slate-400 mb-9"
+  }, paraizeWithL(activeConcept.summary, L)), activeConcept.related_topics.length > 0 && /*#__PURE__*/React.createElement(RelatedChain, {
+    current: activeConcept,
+    ids: activeConcept.related_topics,
+    go: goConcept
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "rounded-2xl bg-white/[.03] ring-1 ring-white/10 mb-6"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => setOpenBody(o => !o),
+    className: "w-full flex items-center justify-between px-5 py-4 text-left hover:bg-white/[.04] transition"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-[14px] font-bold text-slate-200"
+  }, "？ もっと詳しく — 根拠と細部"), /*#__PURE__*/React.createElement("span", {
+    className: "text-cyan-300 text-[13px] font-bold"
+  }, openBody ? "閉じる −" : "開く ＋")), openBody && /*#__PURE__*/React.createElement("div", {
+    className: "px-5 pb-6 pt-2 space-y-3 border-t border-white/10"
+  }, activeConcept.body.map((b, i) => /*#__PURE__*/React.createElement("div", {
+    key: i,
+    className: "rounded-xl bg-white/[.03] ring-1 ring-white/10 p-4"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "text-[18px] font-bold text-cyan-300 mb-1.5"
+  }, L(b.label)), /*#__PURE__*/React.createElement("div", {
+    className: "text-[19.5px] leading-[1.9] text-slate-300"
+  }, paraizeWithL(b.text, L)), /*#__PURE__*/React.createElement("div", {
+    className: "text-[11px] text-slate-500 mt-2 flex items-center gap-2 flex-wrap"
+  }, /*#__PURE__*/React.createElement("span", null, "↳ ", fmtIssue(b.source)), b.sourceType === "qa" && /*#__PURE__*/React.createElement("span", {
+    className: "text-[10px] font-bold text-amber-300 bg-amber-400/10 ring-1 ring-amber-400/30 rounded px-1.5 py-0.5"
+  }, "🙋 読者質問への回答（筆者自身の見解ではない）")))))), /*#__PURE__*/React.createElement("div", {
+    className: "text-[12px] text-slate-500"
+  }, "出典：", activeConcept.source_articles.map(s => fmtIssue(s)).join(" ／ ")), navBar(false))), /*#__PURE__*/React.createElement(TermModal, {
+    termKey: term,
+    onClose: () => setTerm(null),
+    onNav: goConcept
+  }));
+}
+
+
+const {
+  token,
+  dataUrl
+} = window.__MC_VIEW;
+const FIELDS = "title,category,headline,summary,visualization,body,relatedTopics,sourceArticles,firstIssue";
+let _root = null;
+function mapRecord(r) {
+  return {
+    id: r.id,
+    title: r.title || r.id,
+    category: r.category || "",
+    headline: r.headline || "",
+    summary: r.summary || "",
+    visualization: r.visualization || null,
+    body: Array.isArray(r.body) ? r.body : [],
+    related_topics: Array.isArray(r.relatedTopics) ? r.relatedTopics.map(x => x && x.concept).filter(Boolean) : [],
+    source_articles: Array.isArray(r.sourceArticles) ? r.sourceArticles.map(x => x && x.date).filter(Boolean) : [],
+    first_issue: r.firstIssue || ""
+  };
+}
+async function load() {
+  const res = await fetch(dataUrl + "?fields=" + encodeURIComponent(FIELDS), {
+    headers: {
+      Authorization: "Bearer " + token
+    }
+  });
+  if (!res.ok) {
+    document.getElementById("root").textContent = "読み込み失敗 (" + res.status + "): " + (await res.text());
+    return;
+  }
+  const {
+    items
+  } = await res.json();
+  const order = CATEGORIES.map(c => c.id);
+  CONCEPTS = items.map(mapRecord).sort((a, b) => order.indexOf(a.category) - order.indexOf(b.category) || String(minSrc(a)).localeCompare(String(minSrc(b))) || a.title.localeCompare(b.title, "ja"));
+  const allDates = [];
+  CONCEPTS.forEach(c => {
+    (c.source_articles || []).forEach(d => allDates.push(d));
+    (c.body || []).forEach(b => b && b.source && allDates.push(b.source));
+  });
+  const validDates = allDates.filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d)).sort();
+  OLDEST_ISSUE = validDates[0] || "";
+  NEWEST_ISSUE = validDates[validDates.length - 1] || "";
+  if (!_root) _root = ReactDOM.createRoot(document.getElementById("root"));
+  _root.render(/*#__PURE__*/React.createElement(App, {
+    key: "r" + Date.now()
+  }));
+}
+function minSrc(c) {
+  return (c.source_articles || []).slice().sort()[0] || "9999";
+}
+load();
+window.__MC_VIEW.onChange(() => load().catch(() => {}));
+</script>
+<div style="padding:18px 16px 22px;text-align:right;font-family:system-ui,-apple-system,'Hiragino Sans','Noto Sans JP',sans-serif;">
+  <div style="font-size:9px;color:#64748b;margin-top:1px;">Powered by MulmoClaude</div>
+  <div style="font-size:7.5px;color:#475569;margin-top:3px;">※本コンテンツは生成AIを活用して作成しています。情報には誤りが含まれる可能性があるため、必要に応じて原典等をご確認ください。</div>
+</div>
+</body>
+</html>

@@ -1,0 +1,36 @@
+{
+  "id": "inflation",
+  "title": "インフレ",
+  "category": "macro",
+  "headline": "物の値段が全体として上がり続け、お金の価値が下がること",
+  "summary": "いろいろな物やサービスの値段が、全体としてじわじわ上がっていく状態です。同じ1万円で買える量が減るので、お金の価値が下がったとも言えます。",
+  "body": [
+    {
+      "label": "逆の状態",
+      "text": "物の値段が下がり続ける状態は「デフレ」と呼びます。",
+      "source": "2025-11-04",
+      "sourceType": "article"
+    },
+    {
+      "label": "お金の置き場所",
+      "text": "物の値段が上がると、預金にそのまま置いたお金で買える量は減っていきます。そのため、一部を値上がりが見込めるものに置く考え方があります。",
+      "source": "2026-03-03",
+      "sourceType": "article"
+    }
+  ],
+  "relatedTopics": [
+    {
+      "concept": "dollar-cost-averaging"
+    }
+  ],
+  "sourceArticles": [
+    {
+      "date": "2025-11-04"
+    },
+    {
+      "date": "2026-03-03"
+    }
+  ],
+  "firstIssue": "2025-11-04",
+  "visualization": "sample-inflation"
+}

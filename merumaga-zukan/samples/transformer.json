@@ -1,0 +1,42 @@
+{
+  "id": "transformer",
+  "title": "トランスフォーマー",
+  "category": "ai-tech",
+  "headline": "文の中のどの言葉とどの言葉が関係するかを一度に見渡す仕組み",
+  "summary": "2017年に発表された、AIの中身の設計のひとつです。文の中の言葉どうしの関係を、まとめて一度に計算できるのが特徴です。\n\nそれまでの方式より学習を速く進められるようになり、今の大規模言語モデルのほとんどがこの設計をもとにしています。",
+  "body": [
+    {
+      "label": "発表",
+      "text": "Google の研究者たちが「Attention Is All You Need」という論文で発表しました。",
+      "source": "2025-10-07",
+      "sourceType": "article"
+    },
+    {
+      "label": "なぜ速く学べるのか",
+      "text": "文の言葉を1つずつ順番に読むのではなく、すべての言葉の関係をまとめて計算します。この計算はGPUが得意な「同じ計算を一斉にこなす」形なので、学習が大きく速くなりました。",
+      "source": "2026-02-03",
+      "sourceType": "article"
+    }
+  ],
+  "relatedTopics": [
+    {
+      "concept": "llm"
+    },
+    {
+      "concept": "gpu"
+    },
+    {
+      "concept": "moores-law"
+    }
+  ],
+  "sourceArticles": [
+    {
+      "date": "2025-10-07"
+    },
+    {
+      "date": "2026-02-03"
+    }
+  ],
+  "firstIssue": "2025-10-07",
+  "visualization": "sample-transformer"
+}

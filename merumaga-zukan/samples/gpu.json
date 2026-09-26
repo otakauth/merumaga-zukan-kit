@@ -1,0 +1,42 @@
+{
+  "id": "gpu",
+  "title": "GPU",
+  "category": "chips",
+  "headline": "たくさんの単純な計算を同時にこなす半導体",
+  "summary": "もともとはゲームなどの画像を描くために作られた部品です。同じ種類の計算を大量に同時に進めるのが得意なため、AIの学習や利用にも欠かせない部品になりました。",
+  "body": [
+    {
+      "label": "CPUとのちがい",
+      "text": "CPUは複雑な計算を順番にこなすのが得意で、GPUは単純な計算を大量に並べて同時にこなすのが得意です。",
+      "source": "2025-12-02",
+      "sourceType": "article"
+    },
+    {
+      "label": "AIの時代の主役に",
+      "text": "AIの学習も、たくさんの数の掛け算を一斉にこなす仕事です。もとは画面を描くための部品だったGPUが、AIを動かす中心の部品になりました。",
+      "source": "2026-04-07",
+      "sourceType": "article"
+    }
+  ],
+  "relatedTopics": [
+    {
+      "concept": "moores-law"
+    },
+    {
+      "concept": "transformer"
+    },
+    {
+      "concept": "llm"
+    }
+  ],
+  "sourceArticles": [
+    {
+      "date": "2025-12-02"
+    },
+    {
+      "date": "2026-04-07"
+    }
+  ],
+  "firstIssue": "2025-12-02",
+  "visualization": "sample-gpu"
+}

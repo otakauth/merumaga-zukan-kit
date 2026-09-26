@@ -1,0 +1,42 @@
+{
+  "id": "humanoid",
+  "title": "人型ロボット（ヒューマノイド）",
+  "category": "robotics",
+  "headline": "人と同じ形をしているので、人のための場所や道具をそのまま使える",
+  "summary": "頭・胴体・2本の腕・2本の足を持つ、人に近い形のロボットです。階段やドアノブなど、人に合わせて作られた環境で働けるのが利点です。\n\n一方で、二本足で倒れずに歩く、手で物をつかむといった動きはむずかしく、研究が続いています。",
+  "body": [
+    {
+      "label": "専用ロボットとのちがい",
+      "text": "工場の溶接ロボットのように1つの作業に絞ったロボットは、速く正確です。人型は、いろいろな作業をこなせることをねらっています。",
+      "source": "2026-05-12",
+      "sourceType": "article"
+    },
+    {
+      "label": "いちばん難しいのは手",
+      "text": "物をつかむ手は、指の数だけモーターやセンサーが要ります。やわらかい物や形の決まっていない物をつかむのは、今も難しい課題です。",
+      "source": "2026-09-01",
+      "sourceType": "article"
+    }
+  ],
+  "relatedTopics": [
+    {
+      "concept": "ai-agent"
+    },
+    {
+      "concept": "autonomous-driving-levels"
+    },
+    {
+      "concept": "gpu"
+    }
+  ],
+  "sourceArticles": [
+    {
+      "date": "2026-05-12"
+    },
+    {
+      "date": "2026-09-01"
+    }
+  ],
+  "firstIssue": "2026-05-12",
+  "visualization": "sample-humanoid"
+}

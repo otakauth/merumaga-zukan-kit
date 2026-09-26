@@ -1,0 +1,42 @@
+{
+  "id": "token-pricing",
+  "title": "トークン課金",
+  "category": "ai-biz",
+  "headline": "AIの利用料は「読んだ・書いた文字の量」で決まる",
+  "summary": "AIのサービスの多くは、AIが読んだ文章と書いた文章の量に応じて料金がかかります。量を数える単位を「トークン」と呼びます。\n\n長い資料を何度も読ませたり、長い答えを書かせたりすると、そのぶん料金が上がります。",
+  "body": [
+    {
+      "label": "トークンの目安",
+      "text": "英語ではおよそ1単語が1〜2トークン、日本語では1文字が1トークン前後になることが多いです。",
+      "source": "2026-02-03",
+      "sourceType": "article"
+    },
+    {
+      "label": "値下がりの流れ",
+      "text": "同じくらいの性能のAIを使う料金は、年を追うごとに下がってきました。そのぶん、たくさん読ませて何度も考えさせる使い方がしやすくなっています。",
+      "source": "2026-06-02",
+      "sourceType": "article"
+    }
+  ],
+  "relatedTopics": [
+    {
+      "concept": "llm"
+    },
+    {
+      "concept": "ai-agent"
+    },
+    {
+      "concept": "gpu"
+    }
+  ],
+  "sourceArticles": [
+    {
+      "date": "2026-02-03"
+    },
+    {
+      "date": "2026-06-02"
+    }
+  ],
+  "firstIssue": "2026-02-03",
+  "visualization": "sample-token"
+}
