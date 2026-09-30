@@ -1,6 +1,6 @@
 ---
 name: merumaga-zukan
-description: 定期配信のメルマガ（ニュースレター）を「概念ごとのカード」に分けて蓄積し、図解・号の出典・関連する概念のつながりを持つ知識図鑑に育てるコレクション。1レコード = 1概念（記事単位ではなく概念単位。同じ概念が複数の号に出ても1枚のカードにまとめる）。records live at `data/merumaga-zukan/items/<id>.json`（id = 概念スラッグ）。ユーザーは `/collections/merumaga-zukan` の「マップ」ビューで閲覧する。ユーザーがメルマガの本文を貼り付けて「取り込んで」と言ったとき、見本カードを消したいとき、分類や図解を変えたいときに使う。レコードI/Oは `manageCollection`。
+description: 定期配信のメルマガ（ニュースレター）を「概念ごとのカード」に分けて蓄積し、図解・号の出典・関連する概念のつながりを持つ知識図鑑に育てるコレクション。カードから、案内役・字幕・声つきの動画も作れる。1レコード = 1概念（記事単位ではなく概念単位。同じ概念が複数の号に出ても1枚のカードにまとめる）。records live at `data/merumaga-zukan/items/<id>.json`（id = 概念スラッグ）。ユーザーは `/collections/merumaga-zukan` の「マップ」ビューで閲覧する。ユーザーがメルマガの本文を貼り付けて「取り込んで」と言ったとき、見本カードを消したいとき、分類や図解を変えたいとき、カードを動画にしてほしいときに使う。レコードI/Oは `manageCollection`。
 ---
 
 # メルマガ知識図鑑
@@ -18,7 +18,7 @@ description: 定期配信のメルマガ（ニュースレター）を「概念�
 1. `config/helps/collection-skills.md` を読み、この環境でスキルを置く場所を確かめる。
    - `data/skills/` があれば `data/skills/merumaga-zukan/` に置く。
    - なければ `.claude/skills/merumaga-zukan/` に置く。
-2. このフォルダの `SKILL.md`・`schema.json`・`views/`・`tools/` を、そのままそこへ写す。
+2. このフォルダの `SKILL.md`・`schema.json`・`views/`・`tools/`・`video/` を、そのままそこへ写す。
 3. `samples/*.json`（見本カード11枚）を1つの JSON 配列にまとめてワークスペース内に書き出し、
    `manageCollection` の `putItems`（`slug: "merumaga-zukan"`、`itemsFile` にその絶対パス、`mode: "create"`）で入れる。
 4. `presentCollection`（`collectionSlug: "merumaga-zukan"`）で図鑑を見せる。
@@ -67,7 +67,14 @@ description: 定期配信のメルマガ（ニュースレター）を「概念�
   - `CATEGORY_GUIDE`（分類ごとの読み物。`{{概念id}}` と書くとカードへのリンクになる）
   - `LESSON_FLOWS` と `CATEGORY_LESSONS`（「時系列で読む」などの、カードを順にたどる読み物）
   - `FIGS` の中の `sample-*` の図解（使っているカードがなくなったものは消してよい）
+- 見本の動画 `video/sample-ai.js` を消し、`node <スキルの場所>/tools/add-video.cjs` を実行する（見本カードの話をしている動画なので）。
 - `views/map.html` を直したら、スマホ版を作り直す：`node <スキルの場所>/tools/mkmobile.cjs`
+
+## 動画を作る
+
+ユーザーが「この分類を動画にして」など、カードを動画にしてほしいと言ったら、`video/VIDEO.md` を読んで、その手順で作る。
+案内役・字幕・声・進捗バー・用語説明は `video/engine.js` が出すので、書くのは台本と場面の絵（`video/<キー>.js`）だけ。
+1本ごとにトークンを多めに使うので、書き始める前に長さと目安をユーザーに伝える。
 
 ## 図解を足す
 
@@ -93,5 +100,6 @@ description: 定期配信のメルマガ（ニュースレター）を「概念�
 
 - `views/map.html` — パソコン用。分類 → カード一覧 → カード、の順にたどる。
 - `views/map-mobile.html` — スマホ用。`tools/mkmobile.cjs` で `map.html` から自動で作る。**直接は直さない。**
+- 動画は `video/` にあり、`tools/add-video.cjs` で両方の画面に埋め込まれる。分類の画面の「🎬 動画で見る」から開く。
 
 チャットに全カードを書き出さない。追加・更新のあとは `presentCollection` で見せる。
